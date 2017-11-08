@@ -3,12 +3,9 @@
   (:require [clojure.data.json :as json])
   (:require [clojure.string :as string])
   (:require [clojure.walk :as walk])
-  (:require [clojure.tools.cli :refer [parse-opts]]))
-
-(def example-q "CDK2,CDK3")
-(def example-fields "symbol,name,entrezgene,ensembl")
-(def example-species "human")
-(def example-scopes "symbol,name,entrezgene,ensembl")
+  (:require [clojure.tools.cli :refer [parse-opts]])
+  (:require [clojure.data.csv :as csv])
+  (:require [clojure.java.io :as io]))
 
 
 ;; lein run example_data/regions.csv hg38 example_data/PolII.csv example_data/PolII_custom_tracks.txt data/ out.pdf 'endrebak85@gmail.com'
@@ -62,3 +59,24 @@
    (request q fields species scopes)
    (parsed-response)
    (subsetted-result fields)))
+
+
+(def example-q "CDK2,CDK3")
+(def example-fields "symbol,name,entrezgene,ensembl")
+(def example-species "human")
+(def example-scopes "symbol,name,entrezgene,ensembl")
+
+;; example run:
+(main example-q example-fields example-species example-scopes)
+
+;; (require '[clojure.data.csv :as csv]
+;;          '[clojure.java.io :as io])
+
+;; (with-open [reader (io/reader "in-file.csv")]
+;;   (doall
+;;    (csv/read-csv reader)))
+
+;; (with-open [writer (io/writer "out-file.csv")]
+;;   (csv/write-csv writer
+;;                  [["abc" "def"]
+;;                   ["ghi" "jkl"]]))
