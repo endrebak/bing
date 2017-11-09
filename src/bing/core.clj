@@ -8,46 +8,41 @@
   (:require [clojure.data.csv :as csv])
   (:require [clojure.java.io :as io]))
 
-
-;; lein run example_data/regions.csv hg38 example_data/PolII.csv example_data/PolII_custom_tracks.txt data/ out.pdf 'endrebak85@gmail.com'
+(def version "0.0.1")
 (def allowed-values #{"symbol" "name" "entrezgene" "ensembl"})
 
+(defn parse-gene-file [f]
+  (let [file-contents (slurp f)]
+    (clojure.string/replace file-contents "\n" ",")))
+
 (defn parse-args-string [s]
-  (string/split s #","))
-
-
-(defn validate-args-list [s]
-  (->> (parse-args-string s)
-      (every? allowed-values)))
+  (->
+   (clojure.string/lower-case s)
+   (string/split #",")))
 
 
 (def cli-options
   [["-h" "--help"]
-   ["-v" "--version"]
-   ["-g" "--species" "Possible common name values: human, mouse, rat, fruitfly, nematode, zebrafish, thale-cress, frog and pig. For other species, use a taxonomy id: http://docs.mygene.info/en/latest/doc/query_service.html#"]
+   ["-v" "--version" version]
+   ["-g" "--species" "Possible common name values: human, mouse, rat, fruitfly, nematode, zebrafish, thale-cress, frog and pig.
+For other species, use a taxonomy id: http://docs.mygene.info/en/latest/doc/query_service.html#" :default "human"]
    ["-q" "--query QUERY" "Comma-separated list of gene names."]
-   ["-Q" "--query-file FILE" "Newline-separated list of gene names"]
-   ["-f" "--fields FIELDS" "What fields to print. Available: symbol,name,entrezgene,ensembl." :default "symbol,name,entrezgene,ensembl" :parse-fn parse-args-string]
+   ["-Q" "--query-file FILE" "Newline-separated list of gene names" :parse-fn parse-gene-file :validate-fn #(.exists (io/as-file %))]
+   ["-f" "--fields FIELDS" "What fields to print. Available:
+   symbol,name,entrezgene,ensembl."
+    :default "symbol,name,entrezgene,ensembl"
+    :parse-fn
+   parse-args-string :validate [#(every? allowed-values %)
+     "Only comma-separated list with values symbol,name,entrezgene,ensembl allowed."]]
    ["-s" "--scopes SCOPES" "What to fields to search for a query match in."
-    :default "symbol,name,entrezgene,ensembl" :parse-fn parse-args-string]])
-
-
-
-
+    :default "symbol,name,entrezgene,ensembl"
+    :parse-fn parse-args-string :validate
+    [#(every? allowed-values %)
+     "Only comma-separated list with values symbol,name,entrezgene,ensembl allowed."]]])
 
 ;; http://docs.mygene.info/en/latest/doc/query_service.html?highlight=scopes#available-fields
 
-   ;; ["-e" "--e-mail EMAIL" "E-mail used to tell UCSC who you are."]  ;; :validate [#(re-matches #"[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?]" %)]]
-   ;; ["-g" "--genome GENOME" "Genome version"
-   ;;  :default "hg38"]
-   ;; ["-r" "--regions REGIONS" "File with regions to graph" :default nil]
-   ;; ["-u" "--ucsc-tracks UCSC" "File with UCSC tracks"]
-   ;; ["-c" "--custom-tracks CUSTOM" "File with custom tracks"]
-   ;; ["-f" "--outfolder OUTFOLDER" "Folder to place region pdfs in" :default "data/"]
-   ;; ["-o" "--outfile OUTFILE" "Final pdf-report"]
-   ;; ])
-
-
+;; :default "symbol,name,entrezgene,ensembl"
 (defn request [q fields species scopes]
   "Request data from mygene.info"
   (client/post "http://mygene.info/v3/query" {:form-params {:q q :fields
@@ -85,23 +80,22 @@
       (println row))))
 
 
-(defn parse-query [v]
-  "If a comma-separated string do nothing, otherwise read as path and turn into
-  comma-separated string."
-  (if (re-find #"," v)
-    v
-    (let [file-contents (slurp v)]
-      (clojure.string/replace file-contents "\n" ","))))
-
-
-(defn -main [q fields species scopes]
+(defn -main [& args]
   "Fetch and parse results from mygene.info"
-  (let [parsed-query (parse-query q)]
-    (->>
-     (request parsed-query fields species scopes)
-     (parsed-response)
-     (subsetted-result fields)
-     (output-results))))
+  (let [{:keys [options arguments summary errors]} (parse-opts args cli-options)]
+    (cond
+      (seq errors) (binding [*out* *err*]
+                     (println (clojure.string/join "\n" errors)))
+      (:help options) (print summary)
+      (:version options) (print version))
+      :default
+       (let [{:keys [species query query-file fields scopes]} options]
+         (->>
+          (request query fields species scopes)
+          (parsed-response)
+          (subsetted-result fields)
+          (output-results)))))
+
 
 
 ;; (def example-q "CDK2,CDK3")
