@@ -27,7 +27,7 @@
    ["-g" "--species" "Possible common name values: human, mouse, rat, fruitfly, nematode, zebrafish, thale-cress, frog and pig.
 For other species, use a taxonomy id: http://docs.mygene.info/en/latest/doc/query_service.html#" :default "human"]
    ["-q" "--query QUERY" "Comma-separated list of gene names."]
-   ["-Q" "--query-file FILE" "Newline-separated list of gene names" :parse-fn parse-gene-file :validate-fn #(.exists (io/as-file %))]
+   ["-Q" "--query-file FILE" "Newline-separated list of gene names" :parse-fn parse-gene-file :validate [#(.exists (io/as-file %)) "File not found."]]
    ["-f" "--fields FIELDS" "What fields to print. Available:
    symbol,name,entrezgene,ensembl."
     :default "symbol,name,entrezgene,ensembl"
@@ -89,7 +89,8 @@ For other species, use a taxonomy id: http://docs.mygene.info/en/latest/doc/quer
       (:help options) (print summary)
       (:version options) (print version))
       :default
-       (let [{:keys [species query query-file fields scopes]} options]
+      (let [{:keys [species query query-file fields scopes]} options
+            query query-file]
          (->>
           (request query fields species scopes)
           (parsed-response)
